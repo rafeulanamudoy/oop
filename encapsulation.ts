@@ -1,73 +1,44 @@
+//Encapsulation is the OOP pillar of bundling data (state) and the methods that operate on that data into a single unit (a class), while restricting direct access to the object's internal state from the outside world using access modifiers like private or protected.
 
-class PostgreSqlConnection {
-  private storage: any[] = [];
+//Why we use it: We use encapsulation for data security and integrity. It prevents external code from accidentally or maliciously corrupting an object's internal data. Instead of exposing raw data, the class provides controlled public entry points (methods, getters, and setters) that enforce validation rules before any state is modified.
 
-  constructor(private connectionString: string) {
-    console.log(`[DB Connection]: Connected to database at ${this.connectionString}`);
+//"For example, in a UserProfile class, sensitive properties like walletBalance and passwordHash are marked as private. Outside code cannot modify them directly. Instead, we expose a public method like depositMoney(amount) or setPassword(). This public method acts as a security guard—it validates the input (such as making sure a deposit isn't negative) and then safely updates the private balance internally. This ensures our app never enters an invalid state."
+class UserProfile {
+  //  1. PRIVATE DATA: Completely hidden from the outside world
+  private passwordHash: string = "";
+  private walletBalance: number = 0;
+
+  //  2. PRIVATE HELPER: Only this class knows how to hash passwords. 
+  // External code cannot call this directly.
+  private hashPassword(rawPassword: string): string {
+    console.log("Hashing password securely...");
+    return `hashed_${rawPassword}`; // Simulating a secure hash
   }
 
-  public insertData(data: any) {
-    this.storage.push(data);
-    console.log("[PostgreSqlConnection]: Data inserted successfully into table.");
+  //  3. PUBLIC ENTRY POINT (SETTER): Safe way to set a password
+  public setPassword(rawPassword: string) {
+    if (rawPassword.length < 6) {
+      throw new Error("Password must be at least 6 characters long!");
+    }
+    // Internally calls the private method safely!
+    this.passwordHash = this.hashPassword(rawPassword);
+    console.log("Password successfully updated.");
+  }
+
+  // 4. PUBLIC ENTRY POINT: Safe way to deposit money with validation
+  public depositMoney(amount: number) {
+    if (amount <= 0) {
+      console.log("Error: Deposit amount must be greater than zero!");
+      return;
+    }
+    
+    // Safely updates the private balance
+    this.walletBalance += amount;
+    console.log(`Successfully deposited $${amount}. Current balance: $${this.walletBalance}`);
+  }
+
+  // 5. PUBLIC GETTER: Safe way to READ the balance without allowing anyone to modify it
+  public getBalance(): number {
+    return this.walletBalance;
   }
 }
-
-
-abstract class DbRepository {
-  abstract saveOrderToDb(orderData: any): void;
-}
-
-
-class PostgreSql implements DbRepository {
- 
-  constructor(private dbClient: PostgreSqlConnection) {}
-
-  public saveOrderToDb(orderData: any): void {
-    this.dbClient.insertData(orderData);
-  }
-}
-
-
-class MockData implements DbRepository {
-  private storage: any[] = [];
-  
-  public saveOrderToDb(orderData: any): void {
-    this.storage.push(orderData);
-    console.log("[MockDatabase]: Order saved safely to temporary memory.");
-  }
-}
-
-
-class OrderService {
-
-  constructor(private dbRepo: DbRepository) {}
-
-  public createOrder(item: string, price: number) {
-    const order = { item, price, date: new Date() };
-    console.log(`[OrderService]: Processing order for "${item}"...`);
-
-  
-    this.dbRepo.saveOrderToDb(order);
-    console.log(this,"check this ")
-  }
-}
-
-
-console.log("--- SCENARIO A: Running with Production PostgreSQL ---");
-
-const realConnection = new PostgreSqlConnection("postgresql://localhost:5432/production_db");
-
-const postgresRepo = new PostgreSql(realConnection);
-
-const orderServiceWithPg = new OrderService(postgresRepo);
-
-orderServiceWithPg.createOrder("Mechanical Keyboard", 120);
-
-
-console.log("\n--- SCENARIO B: Running Unit Test with Mock Database ---");
-
-const mockRepo = new MockData();
-
-const orderServiceWithMock = new OrderService(mockRepo);
-
-orderServiceWithMock.createOrder("Gaming Mouse", 60);
